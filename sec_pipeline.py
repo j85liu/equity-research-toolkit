@@ -426,6 +426,72 @@ class SECDataPipeline:
         else:
             print("❌ No data was processed successfully")
             return pd.DataFrame()
+    
+    def process_all_sectors(self, tech_companies, healthcare_companies, defense_companies):
+        """
+        Process all sectors and return combined results.
+        
+        Args:
+            tech_companies (list): List of tech company tickers
+            healthcare_companies (list): List of healthcare company tickers
+            defense_companies (list): List of defense company tickers
+            
+        Returns:
+            dict: Dictionary with sector data and combined dataset
+        """
+        results = {}
+        
+        print("\n" + "="*60)
+        print("🚀 PROCESSING ALL SECTORS")
+        print("="*60)
+        
+        # Process Tech Sector
+        print(f"\n📱 TECH SECTOR ({len(tech_companies)} companies)")
+        print("-" * 40)
+        tech_data = self.process_multiple_companies(tech_companies, sector='tech')
+        results['tech'] = tech_data
+        
+        # Process Healthcare Sector
+        print(f"\n🏥 HEALTHCARE SECTOR ({len(healthcare_companies)} companies)")
+        print("-" * 40)
+        healthcare_data = self.process_multiple_companies(healthcare_companies, sector='healthcare')
+        results['healthcare'] = healthcare_data
+        
+        # Process Defense Sector
+        print(f"\n🛡️ DEFENSE SECTOR ({len(defense_companies)} companies)")
+        print("-" * 40)
+        defense_data = self.process_multiple_companies(defense_companies, sector='defense')
+        results['defense'] = defense_data
+        
+        # Combine all sectors
+        all_sector_data = []
+        for sector_name, sector_data in results.items():
+            if not sector_data.empty:
+                all_sector_data.append(sector_data)
+        
+        if all_sector_data:
+            combined_all = pd.concat(all_sector_data, ignore_index=True)
+            results['all_combined'] = combined_all
+            
+            # Print final summary (no master file saved)
+            print(f"\n🎉 FINAL SUMMARY")
+            print("=" * 60)
+            print(f"📊 Total companies processed: {len(combined_all['ticker'].unique())}")
+            print(f"📈 Total data points: {len(combined_all):,}")
+            print(f"📅 Date range: {combined_all['date'].min().strftime('%Y-%m-%d')} to {combined_all['date'].max().strftime('%Y-%m-%d')}")
+            print(f"🏢 Companies by sector:")
+            
+            for sector in ['tech', 'healthcare', 'defense']:
+                if sector in results and not results[sector].empty:
+                    companies = results[sector]['ticker'].unique()
+                    print(f"   {sector.upper()}: {', '.join(companies)}")
+            
+            print(f"📁 Individual files saved in sector subdirectories:")
+            print(f"   - data/tech/ ({len([x for x in results.get('tech', pd.DataFrame())['ticker'].unique() if x])} companies)")
+            print(f"   - data/healthcare/ ({len([x for x in results.get('healthcare', pd.DataFrame())['ticker'].unique() if x])} companies)") 
+            print(f"   - data/defense/ ({len([x for x in results.get('defense', pd.DataFrame())['ticker'].unique() if x])} companies)")
+        
+        return results
 
 # Example usage
 if __name__ == "__main__":
