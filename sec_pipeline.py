@@ -368,130 +368,56 @@ class SECDataPipeline:
         df.to_csv(filepath, index=False)
         print(f"Data saved to {filepath}")
     
-    def process_multiple_companies(self, tickers, save_individual=True, save_combined=True):
+    def process_sector(self, tickers, sector_name):
         """
-        Process multiple companies and optionally save the data.
+        Process all companies in a sector.
         
         Args:
             tickers (list): List of ticker symbols
-            save_individual (bool): Save individual company files
-            save_combined (bool): Save combined file
-            
-        Returns:
-            pd.DataFrame: Combined data for all companies
+            sector_name (str): Name of the sector ('tech', 'healthcare', 'defense')
         """
-        all_data = []
+        print(f"\n{'='*60}")
+        print(f"🚀 PROCESSING {sector_name.upper()} SECTOR ({len(tickers)} companies)")
+        print(f"{'='*60}")
         
-        for ticker in tickers:
-            print(f"\n{'='*50}")
-            print(f"Processing {ticker}")
-            print(f"{'='*50}")
+        successful_companies = []
+        
+        for i, ticker in enumerate(tickers, 1):
+            print(f"\n[{i}/{len(tickers)}] Processing {ticker}...")
+            print("-" * 50)
             
             try:
                 # Process company data
                 df = self.process_company_data(ticker)
                 
                 if df.empty:
-                    print(f"No data retrieved for {ticker}")
+                    print(f"❌ No data retrieved for {ticker}")
                     continue
                 
                 # Calculate ratios
                 df_with_ratios = self.calculate_ratios(df)
                 
-                # Save individual file if requested
-                if save_individual:
-                    filename = f"{ticker.lower()}_financial_data.csv"
-                    self.save_data(df_with_ratios, filename)
+                # Save individual file
+                filename = f"{ticker.lower()}_financial_data.csv"
+                self.save_data(df_with_ratios, filename, sector_name)
                 
-                all_data.append(df_with_ratios)
+                successful_companies.append(ticker)
+                print(f"✅ {ticker} completed ({len(df_with_ratios)} data points)")
                 
                 # Rate limiting - be respectful to SEC servers
                 time.sleep(0.1)
                 
             except Exception as e:
-                print(f"Error processing {ticker}: {e}")
+                print(f"❌ Error processing {ticker}: {e}")
                 continue
         
-        # Combine all data
-        if all_data:
-            combined_df = pd.concat(all_data, ignore_index=True)
-            
-            if save_combined:
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                filename = f"combined_financial_data_{timestamp}.csv"
-                self.save_data(combined_df, filename)
-            
-            print(f"\n🎉 SUCCESS: Combined dataset created with {len(combined_df)} total data points")
-            return combined_df
-        else:
-            print("❌ No data was processed successfully")
-            return pd.DataFrame()
-    
-    def process_all_sectors(self, tech_companies, healthcare_companies, defense_companies):
-        """
-        Process all sectors and return combined results.
+        print(f"\n🎉 {sector_name.upper()} SECTOR COMPLETE")
+        print(f"   ✅ Successful: {len(successful_companies)}/{len(tickers)} companies")
+        print(f"   📁 Files saved in: data/{sector_name}/")
+        if successful_companies:
+            print(f"   🏢 Companies: {', '.join(successful_companies)}")
         
-        Args:
-            tech_companies (list): List of tech company tickers
-            healthcare_companies (list): List of healthcare company tickers
-            defense_companies (list): List of defense company tickers
-            
-        Returns:
-            dict: Dictionary with sector data and combined dataset
-        """
-        results = {}
-        
-        print("\n" + "="*60)
-        print("🚀 PROCESSING ALL SECTORS")
-        print("="*60)
-        
-        # Process Tech Sector
-        print(f"\n📱 TECH SECTOR ({len(tech_companies)} companies)")
-        print("-" * 40)
-        tech_data = self.process_multiple_companies(tech_companies, sector='tech')
-        results['tech'] = tech_data
-        
-        # Process Healthcare Sector
-        print(f"\n🏥 HEALTHCARE SECTOR ({len(healthcare_companies)} companies)")
-        print("-" * 40)
-        healthcare_data = self.process_multiple_companies(healthcare_companies, sector='healthcare')
-        results['healthcare'] = healthcare_data
-        
-        # Process Defense Sector
-        print(f"\n🛡️ DEFENSE SECTOR ({len(defense_companies)} companies)")
-        print("-" * 40)
-        defense_data = self.process_multiple_companies(defense_companies, sector='defense')
-        results['defense'] = defense_data
-        
-        # Combine all sectors
-        all_sector_data = []
-        for sector_name, sector_data in results.items():
-            if not sector_data.empty:
-                all_sector_data.append(sector_data)
-        
-        if all_sector_data:
-            combined_all = pd.concat(all_sector_data, ignore_index=True)
-            results['all_combined'] = combined_all
-            
-            # Print final summary (no master file saved)
-            print(f"\n🎉 FINAL SUMMARY")
-            print("=" * 60)
-            print(f"📊 Total companies processed: {len(combined_all['ticker'].unique())}")
-            print(f"📈 Total data points: {len(combined_all):,}")
-            print(f"📅 Date range: {combined_all['date'].min().strftime('%Y-%m-%d')} to {combined_all['date'].max().strftime('%Y-%m-%d')}")
-            print(f"🏢 Companies by sector:")
-            
-            for sector in ['tech', 'healthcare', 'defense']:
-                if sector in results and not results[sector].empty:
-                    companies = results[sector]['ticker'].unique()
-                    print(f"   {sector.upper()}: {', '.join(companies)}")
-            
-            print(f"📁 Individual files saved in sector subdirectories:")
-            print(f"   - data/tech/ ({len([x for x in results.get('tech', pd.DataFrame())['ticker'].unique() if x])} companies)")
-            print(f"   - data/healthcare/ ({len([x for x in results.get('healthcare', pd.DataFrame())['ticker'].unique() if x])} companies)") 
-            print(f"   - data/defense/ ({len([x for x in results.get('defense', pd.DataFrame())['ticker'].unique() if x])} companies)")
-        
-        return results
+        return successful_companies
 
 # Example usage
 if __name__ == "__main__":
@@ -532,26 +458,33 @@ if __name__ == "__main__":
         print(f"🔬 Test run: {tech_companies + healthcare_companies + defense_companies}")
     
     # Process all sectors
-    results = pipeline.process_all_sectors(tech_companies, healthcare_companies, defense_companies)
+    all_successful = []
     
-    # Optional: Quick analysis of results
-    if 'all_combined' in results:
-        print(f"\n📈 QUICK ANALYSIS:")
-        print("-" * 30)
-        all_data = results['all_combined']
-        
-        # Top metrics by data availability
-        print(f"🔍 Top metrics by data points:")
-        metric_counts = all_data['metric'].value_counts().head(10)
-        for metric, count in metric_counts.items():
-            print(f"   {metric}: {count:,} data points")
-        
-        # Companies with most data
-        print(f"\n🏢 Companies with most data points:")
-        company_counts = all_data['ticker'].value_counts().head(10)
-        for company, count in company_counts.items():
-            print(f"   {company}: {count:,} data points")
-        
+    # Process Tech Sector
+    tech_successful = pipeline.process_sector(tech_companies, 'tech')
+    all_successful.extend(tech_successful)
+    
+    # Process Healthcare Sector
+    healthcare_successful = pipeline.process_sector(healthcare_companies, 'healthcare')
+    all_successful.extend(healthcare_successful)
+    
+    # Process Defense Sector
+    defense_successful = pipeline.process_sector(defense_companies, 'defense')
+    all_successful.extend(defense_successful)
+    
+    # Final summary
+    total_attempted = len(tech_companies + healthcare_companies + defense_companies)
+    print(f"\n🎉 FINAL SUMMARY")
+    print("=" * 60)
+    print(f"📊 Total companies attempted: {total_attempted}")
+    print(f"✅ Successfully processed: {len(all_successful)}")
+    print(f"❌ Failed: {total_attempted - len(all_successful)}")
+    print(f"📁 Data saved in sector subdirectories:")
+    print(f"   - data/tech/ ({len(tech_successful)} companies)")
+    print(f"   - data/healthcare/ ({len(healthcare_successful)} companies)")
+    print(f"   - data/defense/ ({len(defense_successful)} companies)")
+    
+    if all_successful:
         print(f"\n✅ Data collection complete! Ready for visualization and analysis.")
         print(f"💡 Next steps:")
         print(f"   1. Run visualization toolkit on sector data")
